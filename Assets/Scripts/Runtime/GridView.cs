@@ -30,18 +30,9 @@ namespace Game2048.Runtime
         private readonly Image[,] _cellImages = new Image[Board.Size, Board.Size];
         private readonly Text[,] _cellTexts = new Text[Board.Size, Board.Size];
 
-        public GridView()
+        public GridView(Transform parent)
         {
-            var canvasGO = new GameObject("GameCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-            var canvas = canvasGO.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-
-            var scaler = canvasGO.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920);
-
-            var background = CreateUIObject("Background", canvasGO.transform);
-            background.AddComponent<Image>().color = new Color(0.73f, 0.68f, 0.63f);
+            var background = UiFactory.CreateImage("Background", parent, new Color(0.73f, 0.68f, 0.63f)).gameObject;
 
             var layout = background.AddComponent<GridLayoutGroup>();
             layout.cellSize = new Vector2(CellSize, CellSize);
@@ -61,16 +52,8 @@ namespace Game2048.Runtime
             for (var y = 0; y < Board.Size; y++)
             for (var x = 0; x < Board.Size; x++)
             {
-                var cellGO = CreateUIObject($"Cell_{x}_{y}", background.transform);
-                var cellImage = cellGO.AddComponent<Image>();
-                cellImage.color = EmptyCellColor;
-
-                var textGO = CreateUIObject("Value", cellGO.transform);
-                var text = textGO.AddComponent<Text>();
-                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                text.fontSize = 36;
-                text.alignment = TextAnchor.MiddleCenter;
-                text.color = Color.black;
+                var cellImage = UiFactory.CreateImage($"Cell_{x}_{y}", background.transform, EmptyCellColor);
+                var text = UiFactory.CreateText("Value", cellImage.transform, 36, Color.black);
 
                 var textRect = text.rectTransform;
                 textRect.anchorMin = Vector2.zero;
@@ -103,13 +86,6 @@ namespace Game2048.Runtime
                     text.text = tile.Value.ToString();
                 }
             }
-        }
-
-        private static GameObject CreateUIObject(string name, Transform parent)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            return go;
         }
     }
 }
