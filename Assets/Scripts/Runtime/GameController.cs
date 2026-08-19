@@ -1,7 +1,6 @@
 using Game2048.Model;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
@@ -14,6 +13,7 @@ namespace Game2048.Runtime
         private ScoreDisplay _scoreDisplay;
         private GameOverPanel _gameOverPanel;
         private WinBanner _winBanner;
+        private InputReader _inputReader;
 
         private bool _isGameOver;
         private bool _winBannerShown;
@@ -27,6 +27,7 @@ namespace Game2048.Runtime
             _scoreDisplay = new ScoreDisplay(canvas.transform);
             _gameOverPanel = new GameOverPanel(canvas.transform, RestartGame);
             _winBanner = new WinBanner(canvas.transform, DismissWinBanner);
+            _inputReader = new InputReader();
 
             StartNewGame();
         }
@@ -36,11 +37,10 @@ namespace Game2048.Runtime
             if (_isGameOver)
                 return;
 
-            var direction = ReadDirectionInput();
-            if (direction == null)
+            if (!_inputReader.TryReadDirection(out var direction))
                 return;
 
-            var result = _board.Move(direction.Value);
+            var result = _board.Move(direction);
             if (!result.Moved)
                 return;
 
@@ -82,19 +82,6 @@ namespace Game2048.Runtime
         {
             _gridView.Render(_board);
             _scoreDisplay.SetScore(_board.Score);
-        }
-
-        private static Direction? ReadDirectionInput()
-        {
-            var keyboard = Keyboard.current;
-            if (keyboard == null)
-                return null;
-
-            if (keyboard.upArrowKey.wasPressedThisFrame) return Direction.Up;
-            if (keyboard.downArrowKey.wasPressedThisFrame) return Direction.Down;
-            if (keyboard.leftArrowKey.wasPressedThisFrame) return Direction.Left;
-            if (keyboard.rightArrowKey.wasPressedThisFrame) return Direction.Right;
-            return null;
         }
 
         private static Canvas CreateCanvas()
