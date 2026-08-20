@@ -42,10 +42,13 @@ namespace Game2048.Model
             return true;
         }
 
-        public MoveResult Move(Direction direction)
+        public MoveResult Move(Direction direction) => Move(direction, out _);
+
+        public MoveResult Move(Direction direction, out IReadOnlyList<TileMovement> movements)
         {
             var moved = false;
             var scoreGained = 0;
+            var allMovements = new List<TileMovement>();
 
             for (var lineIndex = 0; lineIndex < Size; lineIndex++)
             {
@@ -54,8 +57,16 @@ namespace Game2048.Model
                 for (var i = 0; i < Size; i++)
                     before[i] = GetTile(coords[i].x, coords[i].y);
 
-                var (after, lineScore) = ProcessLine(before);
+                var (after, lineScore, transitions) = ProcessLine(before);
                 scoreGained += lineScore;
+
+                foreach (var transition in transitions)
+                {
+                    var from = coords[transition.SourceIndex];
+                    var to = coords[transition.DestIndex];
+                    allMovements.Add(new TileMovement(
+                        transition.TileId, from.x, from.y, to.x, to.y, transition.ConsumedByMerge));
+                }
 
                 for (var i = 0; i < Size; i++)
                 {
@@ -70,6 +81,7 @@ namespace Game2048.Model
 
             UpdateWinState();
 
+            movements = allMovements;
             return moved ? new MoveResult(true, scoreGained) : MoveResult.None;
         }
 
@@ -91,31 +103,39 @@ namespace Game2048.Model
             return true;
         }
 
-        private (Tile[] result, int scoreGained) ProcessLine(Tile[] line)
+        private (Tile[] result, int scoreGained, List<LineTransition> transitions) ProcessLine(Tile[] line)
         {
-            var compacted = new List<Tile>(Size);
-            foreach (var tile in line)
-                if (tile != null)
-                    compacted.Add(tile);
+            var compacted = new List<(Tile tile, int sourceIndex)>(Size);
+            for (var idx = 0; idx < line.Length; idx++)
+                if (line[idx] != null)
+                    compacted.Add((line[idx], idx));
 
             var merged = new List<Tile>(Size);
+            var transitions = new List<LineTransition>(Size);
             var scoreGained = 0;
             var i = 0;
             while (i < compacted.Count)
             {
-                var current = compacted[i];
+                var (current, currentSource) = compacted[i];
+                var destIndex = merged.Count;
+
                 // Advancing by 2 on a merge (rather than re-checking the merged
                 // result) is what stops a run like [2,2,2] from cascading into [8].
-                if (i + 1 < compacted.Count && compacted[i + 1].Value == current.Value)
+                if (i + 1 < compacted.Count && compacted[i + 1].tile.Value == current.Value)
                 {
+                    var (next, nextSource) = compacted[i + 1];
                     var mergedTile = new Tile(current.Value * 2, NextTileId());
                     merged.Add(mergedTile);
                     scoreGained += mergedTile.Value;
+
+                    transitions.Add(new LineTransition(current.Id, currentSource, destIndex, true));
+                    transitions.Add(new LineTransition(next.Id, nextSource, destIndex, true));
                     i += 2;
                 }
                 else
                 {
                     merged.Add(current);
+                    transitions.Add(new LineTransition(current.Id, currentSource, destIndex, false));
                     i += 1;
                 }
             }
@@ -124,7 +144,23 @@ namespace Game2048.Model
             for (var idx = 0; idx < merged.Count; idx++)
                 result[idx] = merged[idx];
 
-            return (result, scoreGained);
+            return (result, scoreGained, transitions);
+        }
+
+        private readonly struct LineTransition
+        {
+            public readonly int TileId;
+            public readonly int SourceIndex;
+            public readonly int DestIndex;
+            public readonly bool ConsumedByMerge;
+
+            public LineTransition(int tileId, int sourceIndex, int destIndex, bool consumedByMerge)
+            {
+                TileId = tileId;
+                SourceIndex = sourceIndex;
+                DestIndex = destIndex;
+                ConsumedByMerge = consumedByMerge;
+            }
         }
 
         private static (int x, int y)[] GetLine(Direction direction, int lineIndex)

@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using Game2048.Model;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -17,6 +19,7 @@ namespace Game2048.Runtime
 
         private bool _isGameOver;
         private bool _winBannerShown;
+        private bool _isAnimating;
 
         private void Start()
         {
@@ -34,18 +37,29 @@ namespace Game2048.Runtime
 
         private void Update()
         {
-            if (_isGameOver)
+            if (_isGameOver || _isAnimating)
                 return;
 
             if (!_inputReader.TryReadDirection(out var direction))
                 return;
 
-            var result = _board.Move(direction);
+            var result = _board.Move(direction, out var movements);
             if (!result.Moved)
                 return;
 
+            StartCoroutine(PlayMoveSequence(movements));
+        }
+
+        private IEnumerator PlayMoveSequence(IReadOnlyList<TileMovement> movements)
+        {
+            _isAnimating = true;
+
+            yield return _gridView.AnimateMove(_board, movements);
+
             _board.SpawnRandomTile();
-            RefreshView();
+            yield return _gridView.AnimateSpawn(_board);
+
+            _scoreDisplay.SetScore(_board.Score);
 
             if (!_winBannerShown && _board.HasWon)
             {
@@ -58,6 +72,8 @@ namespace Game2048.Runtime
                 _isGameOver = true;
                 _gameOverPanel.Show(_board.Score);
             }
+
+            _isAnimating = false;
         }
 
         private void StartNewGame()
@@ -68,21 +84,17 @@ namespace Game2048.Runtime
 
             _isGameOver = false;
             _winBannerShown = false;
+            _isAnimating = false;
             _gameOverPanel.Hide();
             _winBanner.Hide();
 
-            RefreshView();
+            _scoreDisplay.SetScore(_board.Score);
+            _gridView.SyncInstant(_board);
         }
 
         private void RestartGame() => StartNewGame();
 
         private void DismissWinBanner() => _winBanner.Hide();
-
-        private void RefreshView()
-        {
-            _gridView.Render(_board);
-            _scoreDisplay.SetScore(_board.Score);
-        }
 
         private static Canvas CreateCanvas()
         {
