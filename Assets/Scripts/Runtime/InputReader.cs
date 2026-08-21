@@ -16,6 +16,13 @@ namespace Game2048.Runtime
             return TryReadKeyboard(out direction) || TryReadSwipe(out direction);
         }
 
+        // On Android, the system back button/gesture is delivered to Unity as Escape.
+        public bool BackPressed()
+        {
+            var keyboard = Keyboard.current;
+            return keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
+        }
+
         private static bool TryReadKeyboard(out Direction direction)
         {
             var keyboard = Keyboard.current;
